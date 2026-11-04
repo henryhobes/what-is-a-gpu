@@ -79,7 +79,7 @@ export const beat1CpuTicks = Math.ceil(beat1Work / (byId.epyc.lanes * ASSUME.cpu
 // ---------------------------------------------------------------------------
 // Every number the prose shows. index.html carries these same strings as
 // fallback text so the page reads correctly without JavaScript; the test
-// checks that the two never drift apart, and beats.js rewrites them at boot.
+// checks that the two never drift apart.
 
 const { h100, epyc } = byId;
 const macs = ASSUME.bigMatrix ** 3;

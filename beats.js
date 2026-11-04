@@ -107,7 +107,7 @@ export function beat1(section) {
     gpuDesc.innerHTML = `Each tick: <strong>${fmtCount(busy)}</strong> lanes have work, `
       + `<strong>${fmtCount(idle)}</strong> sit idle. It takes ${plural(tasks, 'tick')}, one per kind of work.`;
     cpuNote.innerHTML = `All <strong>${fmtCount(cpu.lanes)}</strong> cores busy, each on its own task. `
-      + `It takes ${plural(beat1CpuTicks, 'tick')} however the work is split.`;
+      + `It takes ${plural(beat1CpuTicks, 'tick')} however the work is split (the slider doesn’t change this side).`;
     bars.cpu.style.width = `${(100 * beat1CpuTicks) / maxTicks}%`;
     bars.gpu.style.width = `${(100 * tasks) / maxTicks}%`;
     bars.cpuTicks.textContent = plural(beat1CpuTicks, 'tick');
@@ -132,7 +132,8 @@ export function beat2(section) {
   const SERIAL_MS = 1500, FLASH_MS = 300;
   const matrix = section.querySelector('.matrix');
   const order = section.querySelector('#mm-order');
-  const time = section.querySelector('#mm-time');
+  const serialOut = section.querySelector('#mm-serial');
+  const parallelOut = section.querySelector('#mm-parallel');
   const desc = section.querySelector('#matmul-desc');
   const buttons = [...section.querySelectorAll('button[data-mode]')];
   const cells = Array.from({ length: cellCount }, () => document.createElement('span'));
@@ -145,47 +146,65 @@ export function beat2(section) {
 
   let frame = 0, timer = 0;
 
-  function show(done, current, seconds, note) {
+  let serialDone = false, parallelDone = false;
+
+  function show(done, current) {
     cells.forEach((c, i) => {
       c.classList.toggle('done', i < done);
       c.classList.toggle('now', current(i));
     });
     order.textContent = `${fmtCount(done)} of ${fmtCount(cellCount)}`;
-    time.textContent = seconds === null ? '–' : `${fmtSeconds(seconds)} ${note}`;
-    desc.textContent = `A ${n} by ${n} grid of answer cells. ${fmtCount(done)} of ${fmtCount(cellCount)} computed;`
-      + ' none needed another cell’s answer.' + (seconds === null ? '' : ` Modeled time ${fmtSeconds(seconds)} ${note}.`);
+    desc.textContent = `A grid of ${n} by ${n} answer cells. ${fmtCount(done)} of ${fmtCount(cellCount)} computed;`
+      + ' none needed another cell’s answer.';
+  }
+
+  // Once both runs have finished, say how far apart they are.
+  function finish() {
+    if (serialDone && parallelDone) {
+      parallelOut.textContent = `${fmtSeconds(parallelSeconds)}, ${fmtTimes(serialSeconds / parallelSeconds)} faster`;
+    }
   }
 
   function stop() { cancelAnimationFrame(frame); clearTimeout(timer); }
 
   function runSerial() {
-    const note = '(one lane)';
-    if (prefersReducedMotion()) return show(cellCount, () => false, serialSeconds, note);
+    const end = () => {
+      show(cellCount, () => false);
+      serialOut.textContent = fmtSeconds(serialSeconds);
+      serialDone = true;
+      finish();
+    };
+    if (prefersReducedMotion()) return end();
     const start = performance.now();
     const step = (now) => {
-      const done = Math.min(cellCount, Math.floor(((now - start) / SERIAL_MS) * cellCount));
-      show(done, (i) => i === done, done * n * ASSUME.secondsPerMac, note);
-      if (done < cellCount) frame = requestAnimationFrame(step);
+      const done = Math.floor(((now - start) / SERIAL_MS) * cellCount);
+      if (done >= cellCount) return end();
+      show(done, (i) => i === done);
+      serialOut.textContent = fmtSeconds(done * n * ASSUME.secondsPerMac);
+      frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);
   }
 
   function runParallel() {
-    const note = `(${fmtCount(cellCount)} lanes, one per cell)`;
-    if (prefersReducedMotion()) return show(cellCount, () => false, parallelSeconds, note);
-    show(0, () => true, null);
-    timer = setTimeout(() => show(cellCount, () => false, parallelSeconds, note), FLASH_MS);
+    const end = () => {
+      show(cellCount, () => false);
+      parallelOut.textContent = fmtSeconds(parallelSeconds);
+      parallelDone = true;
+      finish();
+    };
+    if (prefersReducedMotion()) return end();
+    show(0, () => true);
+    timer = setTimeout(end, FLASH_MS);
   }
 
   for (const b of buttons) {
-    b.setAttribute('aria-pressed', 'false');
     b.addEventListener('click', () => {
       stop();
-      buttons.forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       (b.dataset.mode === 'serial' ? runSerial : runParallel)();
     });
   }
-  show(0, () => false, null);
+  show(0, () => false);
 }
 
 // ---------------------------------------------------------------------------
@@ -202,10 +221,10 @@ export function beat3(section) {
   const out = section.querySelector('#intensity-out');
   const verdict = section.querySelector('#roofline-verdict');
   const desc = section.querySelector('#roofline-desc');
-  const machineButtons = [...section.querySelectorAll('button[data-machine]')];
+  const machineRadios = [...section.querySelectorAll('input[name="machine"]')];
   const presets = [...section.querySelectorAll('button[data-intensity]')];
 
-  let machine = byId.h100;
+  let machine = byId[machineRadios.find((r) => r.checked).value];
   let intensity = toIntensity(Number(slider.value));
 
   const paint = redrawOn(canvas, (ctx, w, h) => {
@@ -318,9 +337,6 @@ export function beat3(section) {
     const amount = fmtIntensity(intensity);
     out.value = out.textContent = amount;
     slider.setAttribute('aria-valuetext', `${amount} operations per byte`);
-    machineButtons.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.machine === machine.id)));
-    presets.forEach((b) => b.setAttribute('aria-pressed',
-      String(toSlider(Number(b.dataset.intensity)) === Number(slider.value))));
 
     const head = r.memoryBound
       ? `<strong>Memory-bound.</strong> Data can’t arrive fast enough: the ${machine.name} reaches `
@@ -328,7 +344,7 @@ export function beat3(section) {
       : `<strong>Compute-bound.</strong> The ${machine.name} runs at its full ${fmtFlops(r.a)} `
         + `${machine.precision} peak; faster memory would not help.`;
     const tail = `The same work on the ${other.name} would be ${o.memoryBound ? 'memory' : 'compute'}-bound `
-      + `at ${fmtFlops(o.a)} (${o.share} of its peak).`;
+      + `at ${fmtFlops(o.a)} (${o.share} of its ${other.precision} peak).`;
     verdict.innerHTML = `${head} <span class="aside">${tail}</span>`;
     desc.textContent = `Roofline chart on log scales. Horizontal axis: operations per byte, 0.1 to 10,000. `
       + `Vertical axis: achievable speed. ${machine.name}, solid: peak ${fmtFlops(machine.peakFlops)} `
@@ -347,14 +363,8 @@ export function beat3(section) {
       update();
     });
   }
-  for (const b of machineButtons) {
-    b.addEventListener('click', () => { machine = byId[b.dataset.machine]; update(); });
-    b.addEventListener('keydown', (e) => {
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
-      e.preventDefault();
-      const next = machineButtons[(machineButtons.indexOf(b) + 1) % machineButtons.length];
-      next.focus(); next.click();
-    });
+  for (const r of machineRadios) {
+    r.addEventListener('change', () => { machine = byId[r.value]; update(); });
   }
   update();
 }

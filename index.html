@@ -73,8 +73,9 @@
     <div class="matmul">
       <div class="matrix" role="img" aria-describedby="matmul-desc"></div>
       <dl class="stats" aria-live="polite">
-        <div><dt>Cells that could run in any order</dt><dd id="mm-order">0 of <span data-fact="beat2.cells">64</span></dd></div>
-        <div><dt>Modeled time</dt><dd id="mm-time">&ndash;</dd></div>
+        <div><dt>Cells done (each could have run in any order)</dt><dd id="mm-order">0 of <span data-fact="beat2.cells">64</span></dd></div>
+        <div><dt>Modeled time, one at a time (one lane)</dt><dd id="mm-serial">&ndash;</dd></div>
+        <div><dt>Modeled time, all at once (<span data-fact="beat2.cells">64</span> lanes, one per cell)</dt><dd id="mm-parallel">&ndash;</dd></div>
       </dl>
     </div>
     <p class="sr-only" id="matmul-desc"></p>
@@ -101,10 +102,11 @@
   </div>
 
   <div class="interactive" aria-label="Interactive: the roofline chart">
-    <div class="control buttons" role="radiogroup" aria-label="Machine">
-      <button type="button" role="radio" data-machine="h100" aria-checked="true">NVIDIA H100 (GPU)</button>
-      <button type="button" role="radio" data-machine="epyc" aria-checked="false">AMD EPYC (CPU)</button>
-    </div>
+    <fieldset class="control machines">
+      <legend>Machine</legend>
+      <label><input type="radio" name="machine" value="h100" checked> NVIDIA H100 (GPU)</label>
+      <label><input type="radio" name="machine" value="epyc"> AMD EPYC (CPU)</label>
+    </fieldset>
     <canvas class="roofline-canvas" role="img" aria-describedby="roofline-desc"></canvas>
     <p class="sr-only" id="roofline-desc"></p>
     <div class="control">
@@ -130,8 +132,8 @@
   <div class="prose">
     <h2 id="money-h"><span class="num">4</span> Why the money goes where it goes</h2>
     <p><strong>Memory is the expensive part.</strong> The H100 uses HBM (high-bandwidth memory): memory chips stacked on top of each other and placed right next to the processor, wired with thousands of connections. It delivers <span data-fact="h100.bandwidth">3.35 TB/s</span>, <span data-fact="bandwidth.ratio">7.3×</span> what the EPYC gets from ordinary server memory, and it is one of the scarcest, most expensive parts of an AI chip. Every extra byte per second moves the ridge left and lets more real work reach peak speed.</p>
-    <p><strong>A chatbot answering one person barely uses the arithmetic.</strong> To produce each word (a <em>token</em>), a language model reads every one of its weights (the learned numbers that make up the model) once, and does 2 operations with each: a multiply and an add. In bf16 each weight is 2 bytes, so that is an intensity of 1 operation per byte. At that intensity the H100 reaches <span data-fact="decode.flops">3.35 TFLOP/s</span>: <strong><span data-fact="decode.share">0.34%</span> of its <span data-fact="h100.peak">989.4 TFLOP/s</span> peak</strong>. For a <span data-fact="decode.params">70 billion</span>-weight model, that means reading <span data-fact="decode.gbBf16">140</span> GB per token, about <span data-fact="decode.tokBf16">24</span> tokens per second, set entirely by memory. This is why providers batch many users together: each weight fetched serves every request in the batch, and it takes a batch of about <span data-fact="decode.batch">295</span> to reach the ridge.</p>
-    <p><strong>Shrinking the numbers makes it faster without adding arithmetic.</strong> Quantizing (storing each weight in 8 bits instead of 16) halves the bytes to read, <span data-fact="decode.gbInt8">70</span> GB instead of <span data-fact="decode.gbBf16">140</span>, while the operations stay the same. Intensity doubles, the chip reaches <span data-fact="decode.int8">6.7 TFLOP/s</span>, and the model produces about <span data-fact="decode.tokInt8">48</span> tokens per second instead of <span data-fact="decode.tokBf16">24</span>. No extra compute was added, because compute was never the limit.</p>
+    <p><strong>A chatbot answering one person barely uses the arithmetic.</strong> To produce each word (a <em>token</em>), a language model reads every one of its weights (the learned numbers that make up the model) once, and does 2 operations with each: a multiply and an add. In bf16 each weight is 2 bytes, so that is an intensity of 1 operation per byte. That is the first preset in the chart above. At that intensity the H100 reaches <span data-fact="decode.flops">3.35 TFLOP/s</span> of bf16 arithmetic: <strong><span data-fact="decode.share">0.34%</span> of its <span data-fact="h100.peak">989.4 TFLOP/s</span> peak</strong>. For a <span data-fact="decode.params">70 billion</span>-weight model, that means reading <span data-fact="decode.gbBf16">140</span> GB per token, about <span data-fact="decode.tokBf16">24</span> tokens per second, set entirely by memory. This is why providers batch many users together: each weight fetched serves every request in the batch, and it takes a batch of about <span data-fact="decode.batch">295</span> to reach the ridge.</p>
+    <p><strong>Shrinking the numbers makes it faster without adding arithmetic.</strong> Quantizing (storing each weight in 8 bits instead of 16) halves the bytes to read, <span data-fact="decode.gbInt8">70</span> GB instead of <span data-fact="decode.gbBf16">140</span>, while the operations stay the same. Intensity doubles, the chip reaches <span data-fact="decode.int8">6.7 TFLOP/s</span> (still bf16 arithmetic; only the storage shrank), and the model produces about <span data-fact="decode.tokInt8">48</span> tokens per second instead of <span data-fact="decode.tokBf16">24</span>. No extra compute was added, because compute was never the limit.</p>
     <p class="aside">Assumptions: one user (batch of 1), weight reads dominate memory traffic, and the H100 runs at full bandwidth. The <span data-fact="decode.params">70 billion</span>-weight model is an example size. Every other number is computed from the two spec sheets above.</p>
   </div>
 </section>
