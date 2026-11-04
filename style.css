@@ -43,7 +43,7 @@ footer.prose { max-width: 60rem; }
 h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; margin: 3.5rem 0 1rem; letter-spacing: -0.02em; }
 h2 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 0.75rem; letter-spacing: -0.01em; }
 h2 .num {
-  display: inline-block; min-width: 1.6em; margin-right: 0.4em; color: var(--ink-2);
+  display: inline-block; margin-right: 0.5em; color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
 .lede { font-size: 1.2rem; }
