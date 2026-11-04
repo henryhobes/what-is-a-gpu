@@ -1,0 +1,142 @@
+/* Greyscale everywhere. --accent marks only the thing the reader is changing. */
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --ink: #161616;
+  --ink-2: #555555;
+  --line: #d4d4d4;
+  --busy: #3a3a3a;
+  --idle: #e4e4e4;
+  --faint: #b8b8b8;
+  --accent: #0a66d8;
+  --accent-ink: #ffffff;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111111;
+    --surface: #1a1a1a;
+    --ink: #ececec;
+    --ink-2: #a3a3a3;
+    --line: #383838;
+    --busy: #cfcfcf;
+    --idle: #2c2c2c;
+    --faint: #5a5a5a;
+    --accent: #5aa6ff;
+    --accent-ink: #0b0b0b;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main, footer { max-width: 60rem; margin: 0 auto; padding: 0 1.25rem; }
+.prose { max-width: 40rem; }
+footer { padding-bottom: 3rem; color: var(--ink-2); font-size: 0.875rem; border-top: 1px solid var(--line); margin-top: 3rem; }
+footer.prose { max-width: 60rem; }
+
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.05; margin: 3.5rem 0 1rem; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 0.75rem; letter-spacing: -0.01em; }
+h2 .num {
+  display: inline-block; min-width: 1.6em; margin-right: 0.4em; color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.lede { font-size: 1.2rem; }
+.claim { font-size: 1.12rem; font-weight: 500; }
+.takeaway { border-left: 3px solid var(--ink); padding-left: 1rem; font-weight: 500; }
+.aside { color: var(--ink-2); font-size: 0.9rem; }
+section { margin-top: 4.5rem; }
+[data-fact] { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Interactives are hidden until their beat starts; the fallback shows otherwise. */
+.interactive { display: none; }
+.live .interactive { display: block; }
+.live .fallback { display: none; }
+.fallback { border: 1px dashed var(--line); padding: 1rem; color: var(--ink-2); font-size: 0.95rem; }
+
+.interactive {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+/* Controls */
+.control { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 1rem; }
+.control label { flex: 1 1 100%; font-weight: 600; }
+.control input[type="range"] { flex: 1 1 12rem; min-width: 0; accent-color: var(--accent); height: 1.75rem; }
+.value {
+  min-width: 5.5em; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+}
+.buttons { gap: 0.5rem; }
+button {
+  font: inherit; font-size: 0.95rem; color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 6px; padding: 0.45rem 0.85rem; cursor: pointer;
+  text-align: left;
+}
+button:hover { border-color: var(--ink-2); }
+button[aria-checked="true"], button[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Beat 1 */
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+@media (max-width: 40rem) { .panels { grid-template-columns: 1fr; } }
+.panel { margin: 0; min-width: 0; }
+.panel figcaption { margin-bottom: 0.5rem; font-size: 0.95rem; }
+.panel-note { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--ink-2); }
+.panel-note strong { color: var(--ink); }
+.cpu-grid {
+  display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(8, 1fr);
+  gap: 3px; aspect-ratio: 3 / 2;
+}
+.cpu-grid span { background: var(--busy); border-radius: 2px; }
+canvas { display: block; width: 100%; }
+.gpu-canvas { aspect-ratio: 3 / 2; }
+.race { margin-top: 1.25rem; }
+.bar-row { display: grid; grid-template-columns: 3rem 1fr 6.5rem; align-items: center; gap: 0.75rem; margin: 0.35rem 0; }
+.bar-label { font-weight: 600; }
+.bar { height: 0.9rem; background: var(--idle); border-radius: 3px; overflow: hidden; }
+.bar .fill { display: block; height: 100%; background: var(--busy); width: 0; }
+.bar-value { font-variant-numeric: tabular-nums; text-align: right; font-size: 0.95rem; }
+.verdict { margin: 0.75rem 0 0; }
+.race .verdict { font-weight: 600; }
+
+/* Beat 2 */
+.matmul { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; }
+.matrix {
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px;
+  width: min(100%, 18rem); aspect-ratio: 1;
+}
+.matrix span { background: var(--idle); border-radius: 3px; transition: background-color 0.3s; }
+.matrix span.done { background: var(--busy); }
+.matrix span.now { background: var(--accent); transition: none; }
+.stats { margin: 0; flex: 1 1 12rem; }
+.stats div { margin-bottom: 1rem; }
+.stats dt { color: var(--ink-2); font-size: 0.9rem; }
+.stats dd { margin: 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.big-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+.big-compare div { border: 1px solid var(--line); border-radius: 10px; padding: 1rem; background: var(--surface); }
+.big-compare span { display: block; color: var(--ink-2); font-size: 0.9rem; }
+.big-compare .big { color: var(--ink); font-size: clamp(1.8rem, 6vw, 2.6rem); font-weight: 700; line-height: 1.1; margin-bottom: 0.25rem; font-variant-numeric: tabular-nums; }
+
+/* Beat 3 */
+.roofline-canvas { aspect-ratio: 16 / 10; margin-bottom: 1rem; }
+@media (max-width: 40rem) { .roofline-canvas { aspect-ratio: 1 / 1; } }
+.presets button { flex: 1 1 14rem; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

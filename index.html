@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>What is a GPU?</title>
+<meta name="description" content="An interactive explainer: why a GPU is fast only at one shape of work, and why memory, not arithmetic, is usually the real limit.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="beats.js"></script>
+</head>
+<body>
+<main>
+
+<header class="prose">
+  <h1>What is a GPU?</h1>
+  <p class="lede">The usual answer is &ldquo;a chip with thousands of cores, so it&rsquo;s faster.&rdquo; That is true only for one shape of work, and even then the cores usually aren&rsquo;t the limit. This page shows both halves of that sentence.</p>
+  <p>Two machines appear throughout. The <strong>CPU</strong> is an AMD EPYC 9654, a top-end server processor with <span data-fact="epyc.lanes">96</span> cores. The <strong>GPU</strong> is an NVIDIA H100 SXM, the chip most AI is trained on, with <span data-fact="h100.lanes">16,896</span> lanes. A <em>core</em> is a worker that can follow its own list of instructions. A <em>lane</em> is a slot that does one arithmetic step at a time; on a GPU, lanes don&rsquo;t get to choose their own instructions.</p>
+</header>
+
+<section id="shape" data-beat="1" aria-labelledby="shape-h">
+  <div class="prose">
+    <h2 id="shape-h"><span class="num">1</span> The shape of the work</h2>
+    <p class="claim">A GPU&rsquo;s lanes move in lockstep: on every tick of its clock they all carry out the <em>same</em> instruction (one step, like &ldquo;multiply these two numbers&rdquo;), each on its own piece of data. A CPU core can do whatever it likes.</p>
+    <p>Below, both machines get the same <span data-fact="beat1.work">16,896</span> pieces of work. The slider sets how many <em>different kinds</em> of work those pieces are split into. The GPU can only run one kind per tick, so every lane without that kind of work sits idle. The CPU&rsquo;s <span data-fact="epyc.lanes">96</span> cores each run their own task and stay busy no matter what.</p>
+  </div>
+
+  <div class="interactive" aria-label="Interactive: CPU versus GPU on mixed work">
+    <div class="control">
+      <label for="tasks">How many different things are you doing at once?</label>
+      <input id="tasks" type="range" min="1" max="100" step="1" value="1">
+      <output for="tasks" id="tasks-out" class="value">1</output>
+    </div>
+    <div class="panels">
+      <figure class="panel">
+        <figcaption><strong>CPU</strong>: <span data-fact="epyc.lanes">96</span> independent cores</figcaption>
+        <div class="cpu-grid" aria-hidden="true"></div>
+        <p class="panel-note" id="cpu-note"></p>
+      </figure>
+      <figure class="panel">
+        <figcaption><strong>GPU</strong>: <span data-fact="h100.lanes">16,896</span> lanes, one instruction at a time</figcaption>
+        <canvas class="gpu-canvas" role="img" aria-describedby="gpu-desc"></canvas>
+        <p class="panel-note" id="gpu-desc"></p>
+      </figure>
+    </div>
+    <div class="race" aria-live="polite">
+      <div class="bar-row"><span class="bar-label">CPU</span><span class="bar"><span class="fill" id="cpu-bar"></span></span><span class="bar-value" id="cpu-ticks"></span></div>
+      <div class="bar-row"><span class="bar-label">GPU</span><span class="bar"><span class="fill" id="gpu-bar"></span></span><span class="bar-value" id="gpu-ticks"></span></div>
+      <p class="verdict" id="race-verdict"></p>
+    </div>
+  </div>
+  <p class="fallback">This interactive needs JavaScript. If you opened this page as a file, serve the folder instead (see the README). In short: with 1 kind of work the GPU finishes in 1 tick against the CPU&rsquo;s <span data-fact="beat1.cpuTicks">88</span>. With <span data-fact="beat1.maxTasks">100</span> kinds it needs <span data-fact="beat1.maxTasks">100</span> ticks, and the CPU wins.</p>
+
+  <div class="prose">
+    <p class="takeaway">Thousands of lanes help only when thousands of pieces of work want the same instruction at the same moment. When each step needs the previous step&rsquo;s answer, there is only ever one piece of work ready, and extra lanes don&rsquo;t help at all.</p>
+    <p class="aside">The model: one piece of work per lane per tick. A CPU core does <span data-fact="beat1.cpuSpeed">2</span> per tick because it runs at roughly twice the clock speed. A real GPU is less rigid than this: its lanes come in groups of 32, and different groups can follow different instructions. Lanes within a group still have to march together, and that is the effect shown here.</p>
+  </div>
+</section>
+
+<section id="matmul" data-beat="2" aria-labelledby="matmul-h">
+  <div class="prose">
+    <h2 id="matmul-h"><span class="num">2</span> Why AI is shaped like that</h2>
+    <p class="claim">Almost all the arithmetic in an AI model is matrix multiplication: the same multiply-and-add, repeated an enormous number of times, with no piece waiting on any other.</p>
+    <p>To multiply two <span data-fact="beat2.size">8</span>&times;<span data-fact="beat2.size">8</span> grids of numbers, each of the <span data-fact="beat2.cells">64</span> cells of the answer takes one row of the first grid and one column of the second, multiplies them pair by pair, and adds up the <span data-fact="beat2.size">8</span> products. That is <span data-fact="beat2.macs">512</span> multiply-adds in total. No cell needs another cell&rsquo;s answer, so they can be done in any order, or all at the same time.</p>
+  </div>
+
+  <div class="interactive" aria-label="Interactive: an 8 by 8 matrix multiply">
+    <div class="control buttons" role="group" aria-label="Run the matrix multiply">
+      <button type="button" data-mode="serial">One at a time</button>
+      <button type="button" data-mode="parallel">All at once</button>
+    </div>
+    <div class="matmul">
+      <div class="matrix" role="img" aria-describedby="matmul-desc"></div>
+      <dl class="stats" aria-live="polite">
+        <div><dt>Cells that could run in any order</dt><dd id="mm-order">0 of <span data-fact="beat2.cells">64</span></dd></div>
+        <div><dt>Modeled time</dt><dd id="mm-time">&ndash;</dd></div>
+      </dl>
+    </div>
+    <p class="sr-only" id="matmul-desc"></p>
+  </div>
+  <p class="fallback">This interactive needs JavaScript. It lights the <span data-fact="beat2.cells">64</span> cells one at a time, then all at once.</p>
+
+  <div class="prose">
+    <p>Scale that up to a <span data-fact="beat2.bigMatrix">4,096</span>&times;<span data-fact="beat2.bigMatrix">4,096</span> multiply, a routine size inside a language model:</p>
+    <div class="big-compare">
+      <div><span class="big"><span data-fact="beat2.serial">68.7 s</span></span><span>one lane, one multiply-add at a time</span></div>
+      <div><span class="big"><span data-fact="beat2.parallel">4.07 ms</span></span><span><span data-fact="h100.lanes">16,896</span> lanes at once</span></div>
+    </div>
+    <p class="aside">This is a model, not a measurement. It assumes one multiply-add per lane per nanosecond and perfect sharing of the work. Real chips differ in both directions; the point is the ratio, which is just the number of lanes.</p>
+    <p class="takeaway">AI is a near-perfect fit for section 1: one instruction, billions of independent pieces. That is why GPUs, built for drawing millions of pixels the same way, ended up running it.</p>
+  </div>
+</section>
+
+<section id="roofline" data-beat="3" aria-labelledby="roofline-h">
+  <div class="prose">
+    <h2 id="roofline-h"><span class="num">3</span> The real ceiling is memory</h2>
+    <p class="claim">Lanes can only work on numbers that have already arrived from memory. For most real work, the chip spends more time waiting for data than doing arithmetic.</p>
+    <p>Two numbers describe any chip. <strong>Peak compute</strong> is how many arithmetic operations it can do per second, counted in FLOP/s (floating-point operations, meaning arithmetic on decimal numbers). <strong>Memory bandwidth</strong> is how many bytes per second memory can deliver to it. The H100 does <span data-fact="h100.peak">989.4 TFLOP/s</span> in bf16 (a compact 2-byte number format used in AI), dense, on its tensor cores (units built only for matrix multiplies). It reads memory at <span data-fact="h100.bandwidth">3.35 TB/s</span>. NVIDIA&rsquo;s spec sheet also lists <span data-fact="h100.sparse">1,979</span> TFLOP/s, but that figure assumes sparsity (half the numbers are zero and skipped); this page uses the dense figure throughout. The EPYC does <span data-fact="epyc.peak">10.9 TFLOP/s</span> in FP32 (4-byte numbers) and reads memory at <span data-fact="epyc.bandwidth">460.8 GB/s</span>.</p>
+    <p>What matters is <strong>arithmetic intensity</strong>: how many operations your work does for each byte it fetches. Below a certain intensity, the chip runs out of data before it runs out of arithmetic. That crossover, the <em>ridge point</em>, is peak compute divided by bandwidth. For the H100 it is <strong><span data-fact="h100.ridge">295</span> operations per byte</strong>. For the EPYC it is <span data-fact="epyc.ridge">23.7</span>.</p>
+  </div>
+
+  <div class="interactive" aria-label="Interactive: the roofline chart">
+    <div class="control buttons" role="radiogroup" aria-label="Machine">
+      <button type="button" role="radio" data-machine="h100" aria-checked="true">NVIDIA H100 (GPU)</button>
+      <button type="button" role="radio" data-machine="epyc" aria-checked="false">AMD EPYC (CPU)</button>
+    </div>
+    <canvas class="roofline-canvas" role="img" aria-describedby="roofline-desc"></canvas>
+    <p class="sr-only" id="roofline-desc"></p>
+    <div class="control">
+      <label for="intensity">Arithmetic intensity (operations per byte)</label>
+      <input id="intensity" type="range" min="0" max="1000" step="1" value="600">
+      <output for="intensity" id="intensity-out" class="value"></output>
+    </div>
+    <div class="control buttons presets" role="group" aria-label="Example workloads">
+      <button type="button" data-intensity="1">Reading a web page&rsquo;s worth of data per calculation (~1)</button>
+      <button type="button" data-intensity="100">A matrix multiply (~100)</button>
+      <button type="button" data-intensity="1000">A big training step (~1,000)</button>
+    </div>
+    <p class="verdict" id="roofline-verdict" aria-live="polite"></p>
+  </div>
+  <p class="fallback">This interactive needs JavaScript. It plots both chips: the H100&rsquo;s ridge sits at <span data-fact="h100.ridge">295</span> operations per byte and the EPYC&rsquo;s at <span data-fact="epyc.ridge">23.7</span>, <span data-fact="ridge.ratio">12.5×</span> apart.</p>
+
+  <div class="prose">
+    <p class="takeaway">The H100&rsquo;s ridge sits <span data-fact="ridge.ratio">12.5×</span> further right than the EPYC&rsquo;s. Its arithmetic grew far faster than its memory, so work that keeps a CPU fully busy leaves a GPU waiting. A matrix multiply at around 100 operations per byte runs the EPYC at its full peak but holds the H100 to <span data-fact="mm.share">33.9%</span> of its peak.</p>
+  </div>
+</section>
+
+<section id="money" data-beat="4" aria-labelledby="money-h">
+  <div class="prose">
+    <h2 id="money-h"><span class="num">4</span> Why the money goes where it goes</h2>
+    <p><strong>Memory is the expensive part.</strong> The H100 uses HBM (high-bandwidth memory): memory chips stacked on top of each other and placed right next to the processor, wired with thousands of connections. It delivers <span data-fact="h100.bandwidth">3.35 TB/s</span>, <span data-fact="bandwidth.ratio">7.3×</span> what the EPYC gets from ordinary server memory, and it is one of the scarcest, most expensive parts of an AI chip. Every extra byte per second moves the ridge left and lets more real work reach peak speed.</p>
+    <p><strong>A chatbot answering one person barely uses the arithmetic.</strong> To produce each word (a <em>token</em>), a language model reads every one of its weights (the learned numbers that make up the model) once, and does 2 operations with each: a multiply and an add. In bf16 each weight is 2 bytes, so that is an intensity of 1 operation per byte. At that intensity the H100 reaches <span data-fact="decode.flops">3.35 TFLOP/s</span>: <strong><span data-fact="decode.share">0.34%</span> of its <span data-fact="h100.peak">989.4 TFLOP/s</span> peak</strong>. For a <span data-fact="decode.params">70 billion</span>-weight model, that means reading <span data-fact="decode.gbBf16">140</span> GB per token, about <span data-fact="decode.tokBf16">24</span> tokens per second, set entirely by memory. This is why providers batch many users together: each weight fetched serves every request in the batch, and it takes a batch of about <span data-fact="decode.batch">295</span> to reach the ridge.</p>
+    <p><strong>Shrinking the numbers makes it faster without adding arithmetic.</strong> Quantizing (storing each weight in 8 bits instead of 16) halves the bytes to read, <span data-fact="decode.gbInt8">70</span> GB instead of <span data-fact="decode.gbBf16">140</span>, while the operations stay the same. Intensity doubles, the chip reaches <span data-fact="decode.int8">6.7 TFLOP/s</span>, and the model produces about <span data-fact="decode.tokInt8">48</span> tokens per second instead of <span data-fact="decode.tokBf16">24</span>. No extra compute was added, because compute was never the limit.</p>
+    <p class="aside">Assumptions: one user (batch of 1), weight reads dominate memory traffic, and the H100 runs at full bandwidth. The <span data-fact="decode.params">70 billion</span>-weight model is an example size. Every other number is computed from the two spec sheets above.</p>
+  </div>
+</section>
+
+</main>
+<footer class="prose">
+  <p>Specs: NVIDIA H100 SXM, <span data-fact="h100.peak">989.4 TFLOP/s</span> bf16 dense, <span data-fact="h100.bandwidth">3.35 TB/s</span> HBM3, <span data-fact="h100.lanes">16,896</span> CUDA cores, 700 W. AMD EPYC 9654, <span data-fact="epyc.peak">10.9 TFLOP/s</span> FP32 (96 cores &times; 3.55 GHz &times; 32 operations per cycle), <span data-fact="epyc.bandwidth">460.8 GB/s</span> DDR5-4800 across 12 channels, 360 W. No tracking, no external requests: this page is a handful of static files.</p>
+</footer>
+</body>
+</html>

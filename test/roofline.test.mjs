@@ -41,3 +41,17 @@ test('the machine list is frozen', () => {
   assert.ok(Object.isFrozen(MACHINES));
   assert.ok(MACHINES.every(Object.isFrozen));
 });
+
+// index.html carries every number as fallback text so it reads without
+// JavaScript. Each one must match what data.js computes.
+test('every number in index.html matches data.js', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { FACTS } = await import('../data.js');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const found = [...html.matchAll(/<span data-fact="([^"]+)">([^<]*)<\/span>/g)];
+  assert.ok(found.length > 0);
+  for (const [, key, text] of found) assert.equal(text, FACTS[key], `data-fact="${key}"`);
+  // the sparse figure may only appear next to the word "sparsity"
+  const sparse = html.indexOf(`>${FACTS['h100.sparse']}<`);
+  assert.ok(sparse === -1 || /sparsity/.test(html.slice(sparse, sparse + 200)));
+});
